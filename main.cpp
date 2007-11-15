@@ -199,6 +199,8 @@ public:
     }
    
     void update_phys() {
+    	speed_x = (speed_x<100) ? speed_x : 100;
+    	speed_y = (speed_y<200) ? speed_y : 200;
         double new_pos_x = pos_x + (speed_x / fpsen);
         double new_pos_y = pos_y + (speed_y / fpsen);
        
@@ -274,10 +276,16 @@ public:
         if(speed_x>0) {
         	BITMAP* temp = create_bitmap(size_x, size_y * 2);
         	
-        	if (accel_x>0)
-        		rotate_sprite(temp, image, 0, size_y / 2, itofix(20));
-        	else if (accel_x<0)
-        		rotate_sprite(temp, image, 0, size_y / 2, itofix(-20));
+        	if(!(pos_y<size_y*2)) {
+				if (accel_x>0)
+					rotate_sprite(temp, image, 0, size_y / 2, itofix(20));
+				else if (accel_x<0)
+					rotate_sprite(temp, image, 0, size_y / 2, itofix(-20));
+				else {
+					destroy_bitmap(temp);
+					temp = image;
+				}
+        	}
         	else {
         		destroy_bitmap(temp);
         		temp = image;
@@ -291,14 +299,20 @@ public:
         	
         	draw_sprite_h_flip(temp, image, 0, 0);
         	
-        	if (accel_x>0)
-        		rotate_sprite(temp2, temp, 0, size_y / 2, itofix(20));
-        	else if (accel_x<0)
-        		rotate_sprite(temp2, temp, 0, size_y / 2, itofix(-20));
-        	else {
-        		destroy_bitmap(temp2);
-        		temp2 = temp;
+        	if (!(pos_y<size_y*2)) {
+				if (accel_x>0)
+					rotate_sprite(temp2, temp, 0, size_y / 2, itofix(20));
+				else if (accel_x<0)
+					rotate_sprite(temp2, temp, 0, size_y / 2, itofix(-20));
+				else {
+					destroy_bitmap(temp2);
+					temp2 = temp;
+				}
         	}
+        	else {
+				destroy_bitmap(temp2);
+				temp2 = temp;
+			}
         	
         	draw_trans_sprite(buffer, temp2, draw_pos_x, draw_pos_y);
         	destroy_bitmap(temp);
@@ -334,29 +348,29 @@ int main() {
 	
     BITMAP* buffer = create_bitmap(width, height);
     
-    BITMAP* image = load_bitmap("copter(2).tga", 0);
+    BITMAP* image = load_bitmap("./sprites/copter(2).tga", 0);
     
-    BITMAP* background = load_bitmap("background.bmp", 0);
+    BITMAP* background = load_bitmap("./sprites/background.bmp", 0);
     
     BITMAP* image_explosion[17];
     
-    image_explosion[0] = load_bitmap("exp_frame_0.tga", 0);
-    image_explosion[1] = load_bitmap("exp_frame_1.tga", 0);
-    image_explosion[2] = load_bitmap("exp_frame_2.tga", 0);
-    image_explosion[3] = load_bitmap("exp_frame_3.tga", 0);
-    image_explosion[4] = load_bitmap("exp_frame_4.tga", 0);
-    image_explosion[5] = load_bitmap("exp_frame_5.tga", 0);
-    image_explosion[6] = load_bitmap("exp_frame_6.tga", 0);
-    image_explosion[7] = load_bitmap("exp_frame_7.tga", 0);
-    image_explosion[8] = load_bitmap("exp_frame_8.tga", 0);
-    image_explosion[9] = load_bitmap("exp_frame_9.tga", 0);
-    image_explosion[10] = load_bitmap("exp_frame_10.tga", 0);
-    image_explosion[11] = load_bitmap("exp_frame_11.tga", 0);
-    image_explosion[12] = load_bitmap("exp_frame_12.tga", 0);
-    image_explosion[13] = load_bitmap("exp_frame_13.tga", 0);
-    image_explosion[14] = load_bitmap("exp_frame_14.tga", 0);
-    image_explosion[15] = load_bitmap("exp_frame_15.tga", 0);
-    image_explosion[16] = load_bitmap("exp_frame_16.tga", 0);
+    image_explosion[0] = load_bitmap("./sprites/exp_frame_0.tga", 0);
+    image_explosion[1] = load_bitmap("./sprites/exp_frame_1.tga", 0);
+    image_explosion[2] = load_bitmap("./sprites/exp_frame_2.tga", 0);
+    image_explosion[3] = load_bitmap("./sprites/exp_frame_3.tga", 0);
+    image_explosion[4] = load_bitmap("./sprites/exp_frame_4.tga", 0);
+    image_explosion[5] = load_bitmap("./sprites/exp_frame_5.tga", 0);
+    image_explosion[6] = load_bitmap("./sprites/exp_frame_6.tga", 0);
+    image_explosion[7] = load_bitmap("./sprites/exp_frame_7.tga", 0);
+    image_explosion[8] = load_bitmap("./sprites/exp_frame_8.tga", 0);
+    image_explosion[9] = load_bitmap("./sprites/exp_frame_9.tga", 0);
+    image_explosion[10] = load_bitmap("./sprites/exp_frame_10.tga", 0);
+    image_explosion[11] = load_bitmap("./sprites/exp_frame_11.tga", 0);
+    image_explosion[12] = load_bitmap("./sprites/exp_frame_12.tga", 0);
+    image_explosion[13] = load_bitmap("./sprites/exp_frame_13.tga", 0);
+    image_explosion[14] = load_bitmap("./sprites/exp_frame_14.tga", 0);
+    image_explosion[15] = load_bitmap("./sprites/exp_frame_15.tga", 0);
+    image_explosion[16] = load_bitmap("./sprites/exp_frame_16.tga", 0);
    
     rectangle heli(image->w, image->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5);
     ball ballen(10, 40, 40, 40, 20, 0, gravity * 2);
