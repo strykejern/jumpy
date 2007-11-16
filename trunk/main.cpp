@@ -348,7 +348,7 @@ int main() {
 	
     BITMAP* buffer = create_bitmap(width, height);
     
-    BITMAP* image = load_bitmap("./sprites/copter(2).tga", 0);
+    BITMAP* image = load_bitmap("./sprites/chopper.tga", 0);
     
     BITMAP* background = load_bitmap("./sprites/background.bmp", 0);
     
