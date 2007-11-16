@@ -339,8 +339,8 @@ int main() {
     LOCK_FUNCTION(increment_speed_counter);
     install_int_ex(increment_speed_counter, BPS_TO_TIMER(60));
    
-    const int width = 800;
-    const int height = 600;
+    const int width = 1024;
+    const int height = 768;
    
     set_color_depth(32);
     set_gfx_mode(GFX_AUTODETECT_WINDOWED, width, height, 0, 0);
