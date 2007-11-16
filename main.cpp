@@ -1,5 +1,6 @@
 #include <allegro.h>
 #include <math.h>
+#include <iostream>
 
 volatile long speed_counter = 0;
 const int fpsen = 20;
@@ -328,7 +329,7 @@ public:
 	int pos_y;
 	int frame;
 	
-	explosion(BITMAP** Image, int Frame_count) {
+	explosion(BITMAP* Image[], int Frame_count) {
 		pos_x = 0;
 		pos_y = 0;
 		frame = -1;
@@ -338,17 +339,18 @@ public:
 	
 	void update_frame() {
 		if (frame!=-1) {
-			if (frame < frame_count)
-				frame++;
-			else
+			if (++frame = frame_count)
 				frame = -1;
 		}
 	}
 	
 	void draw(BITMAP* buffer) {
-		draw_trans_sprite(buffer, image[frame], pos_x, pos_y);
+		if (frame!=-1)
+			draw_trans_sprite(buffer, image[frame], pos_x - 35, SCREEN_H - pos_y - 50);
 	}
 };
+
+void check_collision(ball ballen, rectangle heli, explosion pang);
 
 void increment_speed_counter() {
     speed_counter++;
@@ -377,7 +379,7 @@ int main() {
     
     BITMAP* background = load_bitmap("./sprites/background.bmp", 0);
     
-    BITMAP** image_explosion;
+    BITMAP* image_explosion[17];
     
     image_explosion[0] = load_bitmap("./sprites/exp_frame_0.tga", 0);
     image_explosion[1] = load_bitmap("./sprites/exp_frame_1.tga", 0);
@@ -396,9 +398,11 @@ int main() {
     image_explosion[14] = load_bitmap("./sprites/exp_frame_14.tga", 0);
     image_explosion[15] = load_bitmap("./sprites/exp_frame_15.tga", 0);
     image_explosion[16] = load_bitmap("./sprites/exp_frame_16.tga", 0);
-   
+	
     rectangle heli(image->w, image->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5);
-    ball ballen(10, 40, 40, 40, 20, 0, gravity * 2);
+    rectangle heli2(image->w, image->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5);
+    ball ballen(10, 70, 80, 40, 20, 0, gravity * 2);
+    explosion ballen (image_explosion, 17);
    
     while (!key[KEY_ESC]) {
         while (speed_counter > 0) {
@@ -410,35 +414,65 @@ int main() {
         	else if (key[KEY_DOWN]) heli.accel_y = gravity -0.5;
         	else heli.accel_y = gravity;
         	
+        	if (key[KEY_A]) heli2.accel_x = -1;
+        	else if (key[KEY_D]) heli2.accel_x = 1;
+        	else heli2.accel_x = 0;
+        	
+        	if (key[KEY_W]) heli2.accel_y = 3;
+        	else if (key[KEY_S]) heli2.accel_y = gravity -0.5;
+        	else heli2.accel_y = gravity;
+        	
             heli.update_phys();
+            heli2.update_phys();
             ballen.update_phys();
             speed_counter--;
+            
+            check_collision(ballen, heli, pang);
         }
         
-        
+        pang.update_frame();
 		blit(background, buffer, 0, 0, 0, 0, width, height);
 		ballen.draw(buffer);
         heli.draw(buffer, image);
-       
-        textprintf_ex(buffer, font, 160, 0, makecol(0, 255, 0), -1, "Speed_x: %i", (int)heli.speed_x);
-        textprintf_ex(buffer, font, 160, 10, makecol(0, 255, 0), -1, "Speed_y: %i", (int)heli.speed_y);
-        textprintf_ex(buffer, font, 160, 20, makecol(0, 255, 0), -1, "Pos_x: %i", (int)heli.pos_x);
-        textprintf_ex(buffer, font, 160, 30, makecol(0, 255, 0), -1, "Pos_y: %i", (int)heli.pos_y);
-        textprintf_ex(buffer, font, 160, 40, makecol(0, 255, 0), -1, "Accel_y: %f", heli.accel_y);
-        textprintf_ex(buffer, font, 160, 50, makecol(0, 255, 0), -1, "Accel_x: %f", heli.accel_x);
-        //textprintf_ex(buffer, font, 160, 60, makecol(0, 255, 0), -1, "M: 3kg");
-        //int ball_ep = (int)((3 * ((heli.accel_y>0) ? 1 : (heli.accel_y<0) ? -1 : 0) * heli.accel_y * heli.pos_y) + (3 * ((heli.accel_x>0) ? 1 : (heli.accel_x<0) ? -1 : 0) * -heli.accel_x * heli.pos_x));
-        //int ball_ek = (int)((3 * heli.speed_x * heli.speed_x / 2) + (3 * heli.speed_y * heli.speed_y / 2));
-        //textprintf_ex(buffer, font, 160, 70, makecol(0, 255, 0), -1, "Ep: %i", ball_ep);
-        //textprintf_ex(buffer, font, 160, 80, makecol(0, 255, 0), -1, "Ek: %i", ball_ek);
-        //textprintf_ex(buffer, font, 160, 90, makecol(0, 255, 0), -1, "Ep + Ek: %i", ball_ep + ball_ek);
+        heli2.draw(buffer, image);
+        pang.draw(buffer);
        
         blit(buffer, screen, 0, 0, 0, 0, width, height);
         clear_bitmap(buffer);
     }
    
     destroy_bitmap(buffer);
+    
    
     return 0;
 }
 END_OF_MAIN();
+
+void check_collision(ball ballen, rectangle heli, explosion pang) {
+	bool collision = true;
+	
+	int heli_bb_top 	= (int)heli.pos_y + heli.size_y;
+	int heli_bb_left 	= (int)heli.pos_x;
+	int heli_bb_bottom 	= (int)heli.pos_y;
+	int heli_bb_right 	= (int)heli.pos_x + heli.size_x;
+	
+	int ballen_bb_top	= (int)ballen.pos_y + ballen.radius;
+	int ballen_bb_left	= (int)ballen.pos_x - ballen.radius;
+	int ballen_bb_bottom= (int)ballen.pos_y - ballen.radius;
+	int ballen_bb_right	= (int)ballen.pos_x + ballen.radius;
+	
+	if 		(heli_bb_top	< ballen_bb_bottom) collision = false;
+	else if (heli_bb_right	< ballen_bb_left) 	collision = false;
+	else if (heli_bb_bottom > ballen_bb_top) 	collision = false;
+	else if (heli_bb_left	> ballen_bb_right) 	collision = false;
+	
+	if (collision) {
+		if (pang.frame==-1) {
+			pang.pos_x = (int)heli.pos_x + (heli.size_x / 2);
+			pang.pos_y = (int)heli.pos_y - (heli.size_y / 2);
+			pang.frame = 0;
+			heli.speed_x = 0;
+			heli.speed_y = 0;
+		}
+    }
+}
