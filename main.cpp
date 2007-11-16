@@ -320,9 +320,34 @@ public:
     }
 };
 
-struct explosion {
+class explosion {
+	int frame_count;
+	BITMAP** image;
+public:
 	int pos_x;
 	int pos_y;
+	int frame;
+	
+	explosion(BITMAP** Image, int Frame_count) {
+		pos_x = 0;
+		pos_y = 0;
+		frame = -1;
+		image = Image;
+		frame_count = Frame_count;
+	}
+	
+	void update_frame() {
+		if (frame!=-1) {
+			if (frame < frame_count)
+				frame++;
+			else
+				frame = -1;
+		}
+	}
+	
+	void draw(BITMAP* buffer) {
+		draw_trans_sprite(buffer, image[frame], pos_x, pos_y);
+	}
 };
 
 void increment_speed_counter() {
@@ -352,7 +377,7 @@ int main() {
     
     BITMAP* background = load_bitmap("./sprites/background.bmp", 0);
     
-    BITMAP* image_explosion[17];
+    BITMAP** image_explosion;
     
     image_explosion[0] = load_bitmap("./sprites/exp_frame_0.tga", 0);
     image_explosion[1] = load_bitmap("./sprites/exp_frame_1.tga", 0);
