@@ -6,6 +6,37 @@ volatile long speed_counter = 0;
 const int fpsen = 20;
 const double gravity = -9.81 / 2;
 
+class explosion {
+	int frame_count;
+	BITMAP** image;
+public:
+	int pos_x;
+	int pos_y;
+	int frame;
+	
+	explosion(BITMAP* Image[], int Frame_count) {
+		pos_x = 0;
+		pos_y = 0;
+		frame = -1;
+		image = Image;
+		frame_count = Frame_count * 4;
+	}
+	
+	void update_frame() {
+		if (frame!=-1) {
+			if (frame < frame_count-1)
+				frame++;
+			else
+				frame = -1;
+		}
+	}
+	
+	void draw(BITMAP* buffer) {
+		if (frame!=-1)
+			draw_trans_sprite(buffer, image[frame/4], pos_x - 35, SCREEN_H - pos_y - 50);
+	}
+};
+
 class ball {
 public:
     double pos_x, pos_y;
@@ -149,22 +180,26 @@ public:
     double fric, bounce;
    
     int size_x, size_y;
+    
+    explosion* pang;
 
-    rectangle(int Size_x, int Size_y) {
+    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y) {
         size_x = Size_x;
         size_y = Size_y;
         fric = 1;
         bounce= 1;
+        pang = new explosion(explosion_image, frame_count);
     }
-    rectangle(int Size_x, int Size_y, double Pos_x, double Pos_y) {
+    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y) {
         size_x = Size_x;
         size_y = Size_y;
         pos_x = Pos_x;
         pos_y = Pos_y;
         fric = 1;
         bounce= 1;
+        pang = new explosion (explosion_image, frame_count);
     }
-    rectangle(int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y) {
+    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y) {
         size_x = Size_x;
         size_y = Size_y;
         pos_x = Pos_x;
@@ -173,8 +208,9 @@ public:
         speed_x = Speed_x;
         fric = 1;
         bounce= 1;
+        pang = new explosion (explosion_image, frame_count);
     }
-    rectangle(int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y) {
+    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y) {
         size_x = Size_x;
         size_y = Size_y;
         pos_x = Pos_x;
@@ -185,8 +221,9 @@ public:
         accel_y = Accel_y / fpsen;
         fric = 1;
         bounce= 1;
+        pang = new explosion (explosion_image, frame_count);
     }
-    rectangle(int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y, double Fric, double Bounce) {
+    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y, double Fric, double Bounce) {
         size_x = Size_x;
         size_y = Size_y;
         pos_x = Pos_x;
@@ -197,6 +234,7 @@ public:
         accel_y = Accel_y / fpsen;
         fric = Fric;
         bounce = Bounce;
+        pang = new explosion (explosion_image, frame_count);
     }
    
     void update_phys() {
@@ -265,11 +303,6 @@ public:
     }
    
     void draw(BITMAP* buffer, BITMAP* image) {
-    	// Draw circle
-        //int draw_pos_x = (int)(pos_x);
-        //int draw_pos_y = (int)(SCREEN_H - pos_y);
-        //circlefill(buffer, draw_pos_x, draw_pos_y, radius, makecol(255, 0, 0));
-        
         // Draw rectangle
         int draw_pos_x = (int)pos_x;
         int draw_pos_y = (int)(SCREEN_H - pos_y - size_y);
@@ -318,39 +351,25 @@ public:
         	draw_trans_sprite(buffer, temp2, draw_pos_x, draw_pos_y);
         	destroy_bitmap(temp);
         }
+    
+    	pang->draw(buffer);
+    	pang->update_frame();
+    	if (pang->frame>-1)
+    		std::cout << pang->frame << std::endl;
     }
-};
-
-class explosion {
-	int frame_count;
-	BITMAP** image;
-public:
-	int pos_x;
-	int pos_y;
-	int frame;
 	
-	explosion(BITMAP* Image[], int Frame_count) {
-		pos_x = 0;
-		pos_y = 0;
-		frame = -1;
-		image = Image;
-		frame_count = Frame_count;
-	}
-	
-	void update_frame() {
-		if (frame!=-1) {
-			if (++frame = frame_count)
-				frame = -1;
+	void explode() {
+		if (pang->frame==-1) {
+			pang->pos_x = (int)pos_x + (size_x / 2);
+			pang->pos_y = (int)pos_y - (size_y / 2);
+			pang->frame = 0;
+			speed_x = 0.01;
+			speed_y = 0.01;
 		}
 	}
-	
-	void draw(BITMAP* buffer) {
-		if (frame!=-1)
-			draw_trans_sprite(buffer, image[frame], pos_x - 35, SCREEN_H - pos_y - 50);
-	}
 };
 
-void check_collision(ball ballen, rectangle heli, explosion pang);
+bool check_collision(ball ballen, rectangle heli);
 
 void increment_speed_counter() {
     speed_counter++;
@@ -376,6 +395,7 @@ int main() {
     BITMAP* buffer = create_bitmap(width, height);
     
     BITMAP* image = load_bitmap("./sprites/chopper.tga", 0);
+    BITMAP* image2 = load_bitmap("./sprites/chopper.tga", 0);
     
     BITMAP* background = load_bitmap("./sprites/background.bmp", 0);
     
@@ -399,10 +419,9 @@ int main() {
     image_explosion[15] = load_bitmap("./sprites/exp_frame_15.tga", 0);
     image_explosion[16] = load_bitmap("./sprites/exp_frame_16.tga", 0);
 	
-    rectangle heli(image->w, image->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5);
-    rectangle heli2(image->w, image->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5);
+    rectangle heli(image_explosion, 17,image->w, image->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5);
+    rectangle heli2(image_explosion, 17,image2->w, image2->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5);
     ball ballen(10, 70, 80, 40, 20, 0, gravity * 2);
-    explosion ballen (image_explosion, 17);
    
     while (!key[KEY_ESC]) {
         while (speed_counter > 0) {
@@ -427,15 +446,16 @@ int main() {
             ballen.update_phys();
             speed_counter--;
             
-            check_collision(ballen, heli, pang);
+            if (check_collision(ballen, heli))
+            	heli.explode();
+            if (check_collision(ballen, heli2))
+            	heli2.explode();
         }
         
-        pang.update_frame();
 		blit(background, buffer, 0, 0, 0, 0, width, height);
 		ballen.draw(buffer);
         heli.draw(buffer, image);
-        heli2.draw(buffer, image);
-        pang.draw(buffer);
+        heli2.draw(buffer, image2);
        
         blit(buffer, screen, 0, 0, 0, 0, width, height);
         clear_bitmap(buffer);
@@ -448,7 +468,7 @@ int main() {
 }
 END_OF_MAIN();
 
-void check_collision(ball ballen, rectangle heli, explosion pang) {
+bool check_collision(ball ballen, rectangle heli) {
 	bool collision = true;
 	
 	int heli_bb_top 	= (int)heli.pos_y + heli.size_y;
@@ -466,13 +486,5 @@ void check_collision(ball ballen, rectangle heli, explosion pang) {
 	else if (heli_bb_bottom > ballen_bb_top) 	collision = false;
 	else if (heli_bb_left	> ballen_bb_right) 	collision = false;
 	
-	if (collision) {
-		if (pang.frame==-1) {
-			pang.pos_x = (int)heli.pos_x + (heli.size_x / 2);
-			pang.pos_y = (int)heli.pos_y - (heli.size_y / 2);
-			pang.frame = 0;
-			heli.speed_x = 0;
-			heli.speed_y = 0;
-		}
-    }
+	return collision;
 }
