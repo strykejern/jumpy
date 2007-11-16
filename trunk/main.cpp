@@ -199,8 +199,8 @@ public:
     }
    
     void update_phys() {
-    	speed_x = (speed_x<100) ? speed_x : 100;
-    	speed_y = (speed_y<200) ? speed_y : 200;
+    	speed_x = (speed_x>100) ? 100 : ((speed_x<-100) ? -100 : speed_x);
+    	speed_y = (speed_y>200) ? 200 : ((speed_y<-200) ? -200 : speed_y);
         double new_pos_x = pos_x + (speed_x / fpsen);
         double new_pos_y = pos_y + (speed_y / fpsen);
        
@@ -276,7 +276,7 @@ public:
         if(speed_x>0) {
         	BITMAP* temp = create_bitmap(size_x, size_y * 2);
         	
-        	if(!(pos_y<size_y*2)) {
+        	if(!(pos_y<size_y)) {
 				if (accel_x>0)
 					rotate_sprite(temp, image, 0, size_y / 2, itofix(20));
 				else if (accel_x<0)
@@ -299,7 +299,7 @@ public:
         	
         	draw_sprite_h_flip(temp, image, 0, 0);
         	
-        	if (!(pos_y<size_y*2)) {
+        	if (!(pos_y<size_y)) {
 				if (accel_x>0)
 					rotate_sprite(temp2, temp, 0, size_y / 2, itofix(20));
 				else if (accel_x<0)
@@ -339,8 +339,8 @@ int main() {
     LOCK_FUNCTION(increment_speed_counter);
     install_int_ex(increment_speed_counter, BPS_TO_TIMER(60));
    
-    const int width = 1024;
-    const int height = 768;
+    const int width = 800;
+    const int height = 600;
    
     set_color_depth(32);
     set_gfx_mode(GFX_AUTODETECT_WINDOWED, width, height, 0, 0);
