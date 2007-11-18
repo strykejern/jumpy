@@ -489,7 +489,7 @@ int main() {
             	if (check_collision(spheres[x], heli))
             		heli.explode((heli.pos_x - spheres[x].pos_x)*10, (heli.pos_y - spheres[x].pos_y)*10);
             	if (check_collision(spheres[x], heli2))
-            		heli2.explode((heli.pos_x - spheres[x].pos_x)*10, (heli.pos_y - spheres[x].pos_y)*10);
+            		heli2.explode((heli2.pos_x - spheres[x].pos_x)*10, (heli2.pos_y - spheres[x].pos_y)*10);
             }
             
             if (check_collision(heli, heli2)) {
