@@ -2,9 +2,54 @@
 #include <math.h>
 #include <vector>
 
+#define PI 3.14
+
 volatile long speed_counter = 0;
 const int fpsen = 20;
 const double gravity = -9.81 / 2;
+double angles_x[41];
+double angles_y[41];
+
+class shot {
+public:
+	double pos_x, pos_y;
+	double speed_x, speed_y;
+	int tilt_angle;
+	int flip;
+	bool alive;
+	
+	shot (double Pos_x, double Pos_y, double Speed_x, double Speed_y, int Tilt_angle) {
+		pos_x = Pos_x;
+		pos_y = Pos_y;
+		speed_x = Speed_x;
+		speed_y = Speed_y;
+		tilt_angle = Tilt_angle;
+		if (speed_x<0) flip = -1;
+		else flip = 1;
+		alive = true;
+	}
+
+	void update_phys() {
+		pos_x += speed_x;
+		pos_y += speed_y;
+		if ((pos_x<0)||(pos_x>SCREEN_W)) alive = false;
+		else if ((pos_y<0)||(pos_y>SCREEN_H)) alive = false;
+	}
+
+	void draw(BITMAP* buffer, BITMAP* image) {
+		BITMAP* temp = create_bitmap(20, 10);
+		clear_bitmap(temp);
+		if (flip==1) draw_sprite(temp, image, 0, 0);
+		else draw_sprite_h_flip(temp, image, 0, 0);
+		
+		BITMAP* temp2 = create_bitmap(20, 20);
+		clear_bitmap(temp2);
+		rotate_sprite(temp2, temp, 0, 20 / 2, itofix(tilt_angle));
+		draw_trans_sprite(buffer, temp2, (int)pos_x, SCREEN_H - (int)pos_y);
+		destroy_bitmap(temp);
+		destroy_bitmap(temp2);
+	}
+};
 
 class explosion {
 	BITMAP** image;
@@ -162,14 +207,14 @@ public:
         int draw_pos_y = (int)(SCREEN_H - pos_y);
         circlefill(buffer, draw_pos_x, draw_pos_y, radius, makecol(255, 0, 0));
         
-        // Draw rectangle
+        // Draw helicopter
         //int draw_pos_x = (int)pos_x - radius;
         //int draw_pos_y = (int)(SCREEN_H - pos_y - radius);
-        //draw_sprite(buffer, rectangle, draw_pos_x, draw_pos_y);
+        //draw_sprite(buffer, helicopter, draw_pos_x, draw_pos_y);
     }
 };
 
-class rectangle {
+class helicopter {
 public:
     double pos_x, pos_y;
    
@@ -184,35 +229,11 @@ public:
     int tilt_angle;
     
     explosion* pang;
+    
+    std::vector<shot> shots;
+    int shots_limiter;
 
-    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y) {
-        size_x = Size_x;
-        size_y = Size_y;
-        fric = 1;
-        bounce= 1;
-        pang = new explosion(explosion_image, frame_count);
-    }
-    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y) {
-        size_x = Size_x;
-        size_y = Size_y;
-        pos_x = Pos_x;
-        pos_y = Pos_y;
-        fric = 1;
-        bounce= 1;
-        pang = new explosion (explosion_image, frame_count);
-    }
-    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y) {
-        size_x = Size_x;
-        size_y = Size_y;
-        pos_x = Pos_x;
-        pos_y = Pos_y;
-        speed_x = Speed_x;
-        speed_x = Speed_x;
-        fric = 1;
-        bounce= 1;
-        pang = new explosion (explosion_image, frame_count);
-    }
-    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y) {
+    helicopter(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y) {
         size_x = Size_x;
         size_y = Size_y;
         pos_x = Pos_x;
@@ -224,8 +245,9 @@ public:
         fric = 1;
         bounce= 1;
         pang = new explosion (explosion_image, frame_count);
+        shots_limiter = 0;
     }
-    rectangle(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y, double Fric, double Bounce) {
+    helicopter(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y, double Fric, double Bounce) {
         size_x = Size_x;
         size_y = Size_y;
         pos_x = Pos_x;
@@ -238,6 +260,7 @@ public:
         bounce = Bounce;
         tilt_angle = 0;
         pang = new explosion (explosion_image, frame_count);
+        shots_limiter = 0;
     }
    
     void update_phys() {
@@ -306,10 +329,17 @@ public:
 		pos_y = new_pos_y;
 		speed_y = speed_y + accel_y;
 	}
+    	
+    	for (unsigned int x=0;x<shots.size();++x) {
+    		if (shots[x].alive)
+    			shots[x].update_phys();
+    		else
+    			shots.erase(shots.begin()+x);
+    	}
     }
    
-    void draw(BITMAP* buffer, BITMAP* image) {
-        // Draw rectangle
+    void draw(BITMAP* buffer, BITMAP* image, BITMAP* image_shot) {
+        // Draw helicopter
         int draw_pos_x = (int)pos_x;
         int draw_pos_y = (int)(SCREEN_H - pos_y - size_y);
         
@@ -374,6 +404,9 @@ public:
     	
     	pang->draw(buffer);
     	pang->update_frame();
+    	
+    	for (unsigned int x=0;x<shots.size();++x)
+    		shots[x].draw(buffer, image_shot);
     }
 	
 	void explode() {
@@ -391,7 +424,7 @@ public:
 		
 	}
 
-	void get_input(bool up, bool down, bool left, bool right) {
+	void get_input(bool up, bool down, bool left, bool right, bool shooting) {
 		if (up) accel_y = 3;
 		else if (down) accel_y = gravity - 3;
 		else accel_y = gravity;
@@ -399,12 +432,48 @@ public:
 		if (left) accel_x = -2;
 		else if (right) accel_x = 2;
 		else accel_x = 0;
+		
+		if (shooting) shoot_pre();
+	}
+
+	void shoot() {
+		if (shots_limiter>10) {
+			double x, y;
+			int spd = 32;
+			if (speed_x>=0) {
+				y = (spd*cos(PI/180*(tilt_angle+90)));
+				x = (spd*sin(PI/180*(tilt_angle+90)));
+			}
+			else {
+				y = -(spd*cos(PI/180*(tilt_angle+90)));
+				x = -(spd*sin(PI/180*(tilt_angle+90)));
+			}
+			shots.push_back(shot(pos_x+(size_x/2), pos_y+(size_y/2), x, y, tilt_angle));
+			shots_limiter = 0;
+		}
+		else shots_limiter += 1;
+	}
+	void shoot_pre() {
+		if (shots_limiter>10) {
+			double x, y;
+			if (speed_x>=0) {
+				y = angles_y[tilt_angle+20];
+				x = angles_x[tilt_angle+20];
+			}
+			else {
+				y = -angles_y[tilt_angle+20];
+				x = -angles_x[tilt_angle+20];
+			}
+			shots.push_back(shot(pos_x+(size_x/2), pos_y+(size_y/2), x, y, tilt_angle));
+			shots_limiter = 0;
+		}
+		else shots_limiter += 1;
 	}
 };
 
-bool check_collision(ball, rectangle);
-bool check_collision(ball*, rectangle);
-bool check_collision(rectangle, rectangle);
+bool check_collision(ball, helicopter);
+bool check_collision(ball*, helicopter);
+bool check_collision(helicopter, helicopter);
 
 void increment_speed_counter() {
     speed_counter++;
@@ -412,6 +481,12 @@ void increment_speed_counter() {
 END_OF_FUNCTION(increment_speed_counter);
 
 int main() {
+	const int spd = 32;
+	for (int x=0;x<41;++x) {
+		angles_y[x] = (spd*cos(PI/180*(x-20+90)));
+		angles_x[x] = (spd*sin(PI/180*(x-20+90)));
+	}
+	
     allegro_init();
     install_keyboard();
     install_timer();
@@ -429,12 +504,14 @@ int main() {
 	
     BITMAP* buffer = create_bitmap(width, height);
     
-    BITMAP* image = load_bitmap("./sprites/chopper.tga", 0);
-    BITMAP* image2 = load_bitmap("./sprites/chopper2.tga", 0);
+    BITMAP* image2 = load_bitmap("./sprites/chopper.tga", 0);
+    BITMAP* image = load_bitmap("./sprites/chopper2.tga", 0);
     
     BITMAP* background = load_bitmap("./sprites/background.bmp", 0);
     
     BITMAP* image_sphere = load_bitmap("./sprites/sphere1.tga", 0);
+    
+    BITMAP* image_shot = load_bitmap("./sprites/shot.tga", 0);
     
     BITMAP* image_explosion[17];
     
@@ -456,13 +533,14 @@ int main() {
     image_explosion[15] = load_bitmap("./sprites/exp_frame_15.tga", 0);
     image_explosion[16] = load_bitmap("./sprites/exp_frame_16.tga", 0);
 	
-    rectangle heli(image_explosion, 17,image->w, image->h, 720, 40, 0, 0, 0, gravity / 2, 0.8, 0.5);
-    rectangle heli2(image_explosion, 17,image2->w, image2->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5);
+	std::vector<helicopter> heli;
+    heli.push_back(helicopter(image_explosion, 17,image->w, image->h, 720, 40, 0, 0, 0, gravity / 2, 0.8, 0.5));
+    heli.push_back(helicopter(image_explosion, 17,image2->w, image2->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5));
     
-    std::vector<rectangle> spheres;
-	for (int x=0;x<5;++x)
+    std::vector<helicopter> spheres;
+	for (int x=0;x<500;++x)
 		spheres.push_back(
-			rectangle(
+			helicopter(
 				NULL,
 				0,
 				image_sphere->w,
@@ -476,25 +554,24 @@ int main() {
 	
     while (!key[KEY_ESC]) {
         while (speed_counter > 0) {
-        	heli.get_input(key[KEY_UP], key[KEY_DOWN], key[KEY_LEFT], key[KEY_RIGHT]);
-        	heli2.get_input(key[KEY_W], key[KEY_S], key[KEY_A], key[KEY_D]);
+        	heli[0].get_input(key[KEY_UP], key[KEY_DOWN], key[KEY_LEFT], key[KEY_RIGHT], key[KEY_END]);
+        	heli[1].get_input(key[KEY_W], key[KEY_S], key[KEY_A], key[KEY_D], key[KEY_X]);
         	
-            heli.update_phys();
-            heli2.update_phys();
+        	for (unsigned int x=0;x<heli.size();++x) {
+        		heli[x].update_phys();
+        	}
             
             for (unsigned int x=0;x<spheres.size();++x)
             	spheres[x].update_phys();
             
-            for (unsigned int x=0;x<spheres.size();++x) {
-            	if (check_collision(spheres[x], heli))
-            		heli.explode((heli.pos_x - spheres[x].pos_x)*10, (heli.pos_y - spheres[x].pos_y)*10);
-            	if (check_collision(spheres[x], heli2))
-            		heli2.explode((heli2.pos_x - spheres[x].pos_x)*10, (heli2.pos_y - spheres[x].pos_y)*10);
-            }
+            for (unsigned int x=0;x<heli.size();++x)
+				for (unsigned int y=0;y<spheres.size();++y)
+					if (check_collision(spheres[y], heli[x]))
+						heli[x].explode((heli[x].pos_x - spheres[y].pos_x)*10, (heli[x].pos_y - spheres[y].pos_y)*10);
             
-            if (check_collision(heli, heli2)) {
-            	heli.explode((heli.pos_x - heli2.pos_x)*10, (heli.pos_y - heli2.pos_y)*10);
-            	heli2.explode((heli2.pos_x - heli.pos_x)*10, (heli2.pos_y - heli.pos_y)*10);
+            if (check_collision(heli[0], heli[1])) {
+            	heli[0].explode((heli[0].pos_x - heli[1].pos_x)*10, (heli[0].pos_y - heli[1].pos_y)*10);
+            	heli[1].explode((heli[1].pos_x - heli[0].pos_x)*10, (heli[1].pos_y - heli[0].pos_y)*10);
             }
             
             speed_counter--;
@@ -503,10 +580,12 @@ int main() {
 		blit(background, buffer, 0, 0, 0, 0, width, height);
 		
 		for (unsigned int x=0;x<spheres.size();++x)
-			spheres[x].draw(buffer, image_sphere);
-        heli.draw(buffer, image);
-        heli2.draw(buffer, image2);
-       
+			spheres[x].draw(buffer, image_sphere, image_shot);
+        heli[0].draw(buffer, image, image_shot);
+        heli[1].draw(buffer, image2, image_shot);
+		
+		textprintf_ex(buffer, font, 10, 10, makecol(0, 255, 0), -1, "Size: %i", heli[0].shots.size());
+		
         blit(buffer, screen, 0, 0, 0, 0, width, height);
         clear_bitmap(buffer);
     }
@@ -518,7 +597,7 @@ int main() {
 }
 END_OF_MAIN();
 
-bool check_collision(ball ballen, rectangle heli) {
+bool check_collision(ball ballen, helicopter heli) {
 	bool collision = true;
 	
 	int heli_bb_top 	= (int)heli.pos_y + heli.size_y;
@@ -539,7 +618,7 @@ bool check_collision(ball ballen, rectangle heli) {
 	return collision;
 }
 
-bool check_collision(ball* ballen, rectangle heli) {
+bool check_collision(ball* ballen, helicopter heli) {
 	bool collision = true;
 	
 	int heli_bb_top 	= (int)heli.pos_y + heli.size_y;
@@ -560,18 +639,22 @@ bool check_collision(ball* ballen, rectangle heli) {
 	return collision;
 }
 
-bool check_collision(rectangle heli, rectangle heli2) {
+bool check_collision(helicopter heli, helicopter heli2) {
 	bool collision = true;
 	
-	int heli_bb_top 	= (int)heli.pos_y + heli.size_y;
-	int heli_bb_left 	= (int)heli.pos_x;
-	int heli_bb_bottom 	= (int)heli.pos_y;
-	int heli_bb_right 	= (int)heli.pos_x + heli.size_x;
+	int heli_col_x = heli.size_x / 8;
+	int heli_col_y = heli.size_y / 8;
+	int heli_bb_top 	= (int)heli.pos_y + (heli.size_y - heli_col_y);
+	int heli_bb_left 	= (int)heli.pos_x + heli_col_x;
+	int heli_bb_bottom 	= (int)heli.pos_y + heli_col_y;
+	int heli_bb_right 	= (int)heli.pos_x + (heli.size_x - heli_col_x);
 	
-	int heli2_bb_top	= (int)heli2.pos_y + heli2.size_y;
-	int heli2_bb_left	= (int)heli2.pos_x;
-	int heli2_bb_bottom = (int)heli2.pos_y;
-	int heli2_bb_right	= (int)heli2.pos_x + heli2.size_x;
+	int heli2_col_x = heli2.size_x / 8;
+	int heli2_col_y = heli2.size_y / 8;
+	int heli2_bb_top	= (int)heli2.pos_y + (heli2.size_y - heli2_col_y);
+	int heli2_bb_left	= (int)heli2.pos_x + heli2_col_x;
+	int heli2_bb_bottom = (int)heli2.pos_y + heli2_col_y;
+	int heli2_bb_right	= (int)heli2.pos_x + (heli2.size_x - heli2_col_x);
 	
 	if 		(heli_bb_top	< heli2_bb_bottom)	collision = false;
 	else if (heli_bb_right	< heli2_bb_left) 	collision = false;
@@ -580,4 +663,3 @@ bool check_collision(rectangle heli, rectangle heli2) {
 	
 	return collision;
 }
-
