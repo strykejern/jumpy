@@ -1,12 +1,13 @@
 #include <allegro.h>
 #include <math.h>
 #include <vector>
+#include <time.h>
 
 #define PI 3.14
 
 volatile long speed_counter = 0;
 const int fpsen = 20;
-const double gravity = -9.81 / 2;
+const double gravity = -9.81;
 double angles_x[41];
 double angles_y[41];
 
@@ -52,19 +53,21 @@ public:
 };
 
 class explosion {
-	BITMAP** image;
 public:
 	int pos_x;
 	int pos_y;
 	int frame;
+	BITMAP** image;
 	int frame_count;
+	bool alive;
 	
-	explosion(BITMAP* Image[], int Frame_count) {
-		pos_x = 0;
-		pos_y = 0;
-		frame = -1;
+	explosion(BITMAP** Image, int Frame_count, int Pos_x, int Pos_y) {
+		pos_x = Pos_x+20;
+		pos_y = Pos_y+10;
+		frame = 0;
+		frame_count = Frame_count;
 		image = Image;
-		frame_count = Frame_count * 4;
+		alive = true;
 	}
 	
 	void update_frame() {
@@ -74,6 +77,7 @@ public:
 			else
 				frame = -1;
 		}
+		else alive = false;
 	}
 	
 	void draw(BITMAP* buffer) {
@@ -92,31 +96,11 @@ public:
     
     double fric, bounce;
    
-    int radius;
+    int size_x, size_y;
 
-    ball(int Radius) {
-        radius = Radius;
-        fric = 1;
-        bounce= 1;
-    }
-    ball(int Radius, double Pos_x, double Pos_y) {
-        radius = Radius;
-        pos_x = Pos_x;
-        pos_y = Pos_y;
-        fric = 1;
-        bounce= 1;
-    }
-    ball(int Radius, double Pos_x, double Pos_y, double Speed_x, double Speed_y) {
-        radius = Radius;
-        pos_x = Pos_x;
-        pos_y = Pos_y;
-        speed_x = Speed_x;
-        speed_x = Speed_x;
-        fric = 1;
-        bounce= 1;
-    }
-    ball(int Radius, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y) {
-        radius = Radius;
+    ball(int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y) {
+        size_x = Size_x;
+        size_y = Size_y;
         pos_x = Pos_x;
         pos_y = Pos_y;
         speed_x = Speed_x;
@@ -126,8 +110,9 @@ public:
         fric = 1;
         bounce= 1;
     }
-    ball(int Radius, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y, double Fric, double Bounce) {
-        radius = Radius;
+    ball(int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y, double Fric, double Bounce) {
+        size_x = Size_x;
+        size_y = Size_y;
         pos_x = Pos_x;
         pos_y = Pos_y;
         speed_x = Speed_x;
@@ -139,79 +124,91 @@ public:
     }
    
     void update_phys() {
-        double new_pos_x = pos_x + (speed_x / fpsen);
-        double new_pos_y = pos_y + (speed_y / fpsen);
-       
-        bool collision_x = false;
-        bool collision_y = false;
-       
-        // If new y position is below ground level
-        if (new_pos_y < 0 + radius) {
-            collision_y = true;
-           
-            double t = (radius - pos_y) / speed_y; // pos + t(speed/fpsen) = 0
-           
-            speed_y = speed_y + (accel_y * t); // Speed when at 0
-            speed_y = -(speed_y * bounce); // Reverse speed because we are at 0
-            speed_x *= fric;
-            pos_y = radius + ((1-t) * speed_y / fpsen); // Move from 0 to rest of t
-            speed_y = speed_y + (accel_y * (1-t)); // Speed when moving from 0 to rest of t
-        }
-        else if (new_pos_y > SCREEN_H - radius) {
-            collision_y = true;
-           
-            double t = (radius - (SCREEN_H - pos_y)) / -speed_y; // pos + t(speed/fpsen) = 0
-           
-            speed_y = speed_y + (accel_y * t); // Speed when at 0
-            speed_y = -speed_y; // Reverse speed because we are at 0
-            pos_y = SCREEN_H - (radius + ((1-t) * speed_y / fpsen)); // Move from 0 to rest of t
-            speed_y = speed_y + (accel_y * (1-t)); // Speed when moving from 0 to rest of t
-        }
-       
-        // If new x position is below 0(left)
-        if (new_pos_x < 0 + radius) {
-            collision_x = true;
-           
-            double t = (radius - pos_x) / speed_x; // pos + t(speed/fpsen) = radius
-           
-            speed_x = speed_x + (accel_x * t); // Speed when at 0
-            speed_x = -speed_x; // Reverse speed because we are at 0
-            pos_x = radius + ((1-t) * speed_x / fpsen); // Move from 0 to rest of t
-            speed_x = speed_x + (accel_x * (1-t)); // Speed when moving from 0 to rest of t
-        }
-        else if (new_pos_x > SCREEN_W - radius) {
-            collision_x = true;
-           
-            double t = (radius - (SCREEN_W - pos_x)) / -speed_x; // pos + t(speed/fpsen) = 0
-           
-            speed_x = speed_x + (accel_x * t); // Speed when at 0
-            speed_x = -speed_x; // Reverse speed because we are at 0
-            pos_x = SCREEN_W - (radius + ((1-t) * speed_x / fpsen)); // Move from 0 to rest of t
-            speed_x = speed_x + (accel_x * (1-t)); // Speed when moving from 0 to rest of t
-        }
-       
-        // If no collision, do nomral acceleration and movement
-        if (!collision_x) {
-            pos_x = new_pos_x;
-            speed_x = speed_x + accel_x;
-        }
-        if (!collision_y) {
-            pos_y = new_pos_y;
-            speed_y = speed_y + accel_y;
-        }
+		speed_x = (speed_x>100) ? 100 : ((speed_x<-100) ? -100 : speed_x);
+		speed_y = (speed_y>200) ? 200 : ((speed_y<-200) ? -200 : speed_y);
+		double new_pos_x = pos_x + (speed_x / fpsen);
+		double new_pos_y = pos_y + (speed_y / fpsen);
+		
+		bool collision_x = false;
+		bool collision_y = false;
+	   
+		// If new y position is below ground level
+		if (new_pos_y < 0) {
+			collision_y = true;
+		   
+			double t = pos_y / speed_y; // pos + t(speed) = 0
+		   
+			speed_y = speed_y + (accel_y * t); // Speed when at 0
+			speed_y = -(speed_y * bounce); // Reverse speed because we are at 0
+			speed_x *= fric;
+			pos_y = (1-t) * speed_y / fpsen; // Move from 0 to rest of t
+			speed_y = speed_y + (accel_y * (1-t)); // Speed when moving from 0 to rest of t
+		}
+		else if (new_pos_y > SCREEN_H - size_y) {
+			collision_y = true;
+		   
+			double t = (size_y - (SCREEN_H - pos_y)) / -speed_y; // pos + t(speed/fpsen) = 0
+		   
+			speed_y = speed_y + (accel_y * t); // Speed when at 0
+			speed_y = -speed_y; // Reverse speed because we are at 0
+			pos_y = SCREEN_H - ((1-t) * speed_y / fpsen) - size_y; // Move from 0 to rest of t
+			speed_y = speed_y + (accel_y * (1-t)); // Speed when moving from 0 to rest of t
+		}
+	   
+		// If new x position is below 0(left)
+		if (new_pos_x < 0) {
+			collision_x = true;
+		   
+			double t = pos_x / speed_x; // pos + t(speed/fpsen) = radius
+		   
+			speed_x = speed_x + (accel_x * t); // Speed when at 0
+			speed_x = -speed_x; // Reverse speed because we are at 0
+			pos_x = (1-t) * speed_x / fpsen; // Move from 0 to rest of t
+			speed_x = speed_x + (accel_x * (1-t)); // Speed when moving from 0 to rest of t
+		}
+		else if (new_pos_x > SCREEN_W - size_x) {
+			collision_x = true;
+		   
+			double t = (size_x -(SCREEN_W - pos_x)) / -speed_x; // pos + t(speed/fpsen) = 0
+		   
+			speed_x = speed_x + (accel_x * t); // Speed when at 0
+			speed_x = -speed_x; // Reverse speed because we are at 0
+			pos_x = SCREEN_W - ((1-t) * speed_x / fpsen) - size_x; // Move from 0 to rest of t
+			speed_x = speed_x + (accel_x * (1-t)); // Speed when moving from 0 to rest of t
+		}
+	   
+		// If no collision, do nomral acceleration and movement
+		if (!collision_x) {
+			pos_x = new_pos_x;
+			speed_x = speed_x + accel_x;
+		}
+		if (!collision_y) {
+		pos_y = new_pos_y;
+		speed_y = speed_y + accel_y;
+		}
     }
    
-    void draw(BITMAP* buffer) {
-    	// Draw circle
-        int draw_pos_x = (int)(pos_x);
-        int draw_pos_y = (int)(SCREEN_H - pos_y);
-        circlefill(buffer, draw_pos_x, draw_pos_y, radius, makecol(255, 0, 0));
+    void draw(BITMAP* buffer, BITMAP* image) {
+        // Draw ball/square or whatever
+        int draw_pos_x = (int)pos_x;
+        int draw_pos_y = (int)(SCREEN_H - pos_y - size_y);
         
-        // Draw helicopter
-        //int draw_pos_x = (int)pos_x - radius;
-        //int draw_pos_y = (int)(SCREEN_H - pos_y - radius);
-        //draw_sprite(buffer, helicopter, draw_pos_x, draw_pos_y);
+    	draw_trans_sprite(buffer, image, draw_pos_x, draw_pos_y);
+    	
+    	//pang->draw(buffer);
+    	//pang->update_frame();
     }
+	
+	void explode() {
+		//pang->frame = 0;
+		speed_x = 0;
+		speed_y = 0;
+	}
+	void explode(double Speed_x, double Speed_y) {
+		//pang->frame = 0;
+		speed_x = Speed_x * fric;
+		speed_y = Speed_y * bounce;
+	}
 };
 
 class helicopter {
@@ -228,8 +225,6 @@ public:
     
     int tilt_angle;
     
-    explosion* pang;
-    
     std::vector<shot> shots;
     int shots_limiter;
 
@@ -244,7 +239,6 @@ public:
         accel_y = Accel_y / fpsen;
         fric = 1;
         bounce= 1;
-        pang = new explosion (explosion_image, frame_count);
         shots_limiter = 0;
     }
     helicopter(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y, double Fric, double Bounce) {
@@ -259,13 +253,10 @@ public:
         fric = Fric;
         bounce = Bounce;
         tilt_angle = 0;
-        pang = new explosion (explosion_image, frame_count);
         shots_limiter = 0;
     }
    
     void update_phys() {
-    	pang->pos_x = (int)pos_x + (size_x / 2);
-		pang->pos_y = (int)pos_y - (size_y / 2);
     	
 		speed_x = (speed_x>100) ? 100 : ((speed_x<-100) ? -100 : speed_x);
 		speed_y = (speed_y>200) ? 200 : ((speed_y<-200) ? -200 : speed_y);
@@ -402,26 +393,19 @@ public:
     	if (tilt_angle<-20) tilt_angle = -20;
     	else if (tilt_angle>20) tilt_angle = 20;
     	
-    	pang->draw(buffer);
-    	pang->update_frame();
-    	
     	for (unsigned int x=0;x<shots.size();++x)
     		shots[x].draw(buffer, image_shot);
     }
 	
 	void explode() {
-		
-			pang->frame = 0;
-			speed_x = 0;
-			speed_y = 0;
-		
+		//pang->frame = 0;
+		speed_x = 0;
+		speed_y = 0;
 	}
 	void explode(double Speed_x, double Speed_y) {
-		
-			pang->frame = 0;
-			speed_x = Speed_x;
-			speed_y = Speed_y;
-		
+		//pang->frame = 0;
+		speed_x = Speed_x * fric;
+		speed_y = Speed_y * bounce;
 	}
 
 	void get_input(bool up, bool down, bool left, bool right, bool shooting) {
@@ -471,8 +455,8 @@ public:
 	}
 };
 
+bool check_collision(ball, ball);
 bool check_collision(ball, helicopter);
-bool check_collision(ball*, helicopter);
 bool check_collision(helicopter, helicopter);
 
 void increment_speed_counter() {
@@ -537,41 +521,66 @@ int main() {
     heli.push_back(helicopter(image_explosion, 17,image->w, image->h, 720, 40, 0, 0, 0, gravity / 2, 0.8, 0.5));
     heli.push_back(helicopter(image_explosion, 17,image2->w, image2->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5));
     
-    std::vector<helicopter> spheres;
-	for (int x=0;x<500;++x)
+    srand(time(NULL));
+    
+    std::vector<ball> spheres;
+	for (int x=0;x<50;++x) 
 		spheres.push_back(
-			helicopter(
-				NULL,
-				0,
+			ball(
 				image_sphere->w,
 				image_sphere->h,
 				(double)((int)rand()%(SCREEN_W-image_sphere->w)),
-    			(double)((int)rand()%(SCREEN_H-image_sphere->h)),
-    			(double)((int)rand()%60),
-    			(double)((int)rand()%60),
-    			0.0,
-    			gravity * 2));
+				(double)((int)rand()%(SCREEN_H-image_sphere->h)),
+				(double)((int)rand()%60),
+				(double)((int)rand()%60),
+				0.0,
+				gravity * 2,
+				0.95,
+				0.95));
+	
+	std::vector<explosion> explosions;
 	
     while (!key[KEY_ESC]) {
         while (speed_counter > 0) {
         	heli[0].get_input(key[KEY_UP], key[KEY_DOWN], key[KEY_LEFT], key[KEY_RIGHT], key[KEY_END]);
         	heli[1].get_input(key[KEY_W], key[KEY_S], key[KEY_A], key[KEY_D], key[KEY_X]);
         	
-        	for (unsigned int x=0;x<heli.size();++x) {
+        	for (unsigned int x=0;x<heli.size();++x)
         		heli[x].update_phys();
-        	}
             
             for (unsigned int x=0;x<spheres.size();++x)
             	spheres[x].update_phys();
+            	
+            for (unsigned int x=0;x<explosions.size();++x)
+            	if (explosions[x].alive)
+            		explosions[x].update_frame();
+            	else
+            		explosions.erase(explosions.begin()+x);
             
             for (unsigned int x=0;x<heli.size();++x)
 				for (unsigned int y=0;y<spheres.size();++y)
-					if (check_collision(spheres[y], heli[x]))
-						heli[x].explode((heli[x].pos_x - spheres[y].pos_x)*10, (heli[x].pos_y - spheres[y].pos_y)*10);
+					if (check_collision(spheres[y], heli[x])) {
+						heli[x].explode((heli[x].pos_x - spheres[y].pos_x)+heli[x].speed_x, (heli[x].pos_y - spheres[y].pos_y)+heli[x].speed_y);
+						spheres[y].explode((spheres[y].pos_x - heli[x].pos_x)+spheres[y].speed_x, (spheres[y].pos_y - heli[x].pos_y)+spheres[y].speed_y);
+						explosions.push_back(explosion(image_explosion, 17, (int)heli[x].pos_x, (int)heli[x].pos_y));
+						explosions.push_back(explosion(image_explosion, 17, (int)spheres[x].pos_x, (int)spheres[x].pos_y));
+					}
+            
+            for (unsigned int x=0;x<spheres.size();++x)
+            	for (unsigned int y=x;y<spheres.size();++y)
+            		if (y!=x)
+						if (check_collision(spheres[x], spheres[y])) {
+							spheres[x].explode((spheres[x].pos_x - spheres[y].pos_x)+spheres[x].speed_x, (spheres[x].pos_y - spheres[y].pos_y)+spheres[x].speed_y);
+							spheres[y].explode((spheres[y].pos_x - spheres[x].pos_x)+spheres[y].speed_x, (spheres[y].pos_y - spheres[x].pos_y)+spheres[y].speed_y);
+							explosions.push_back(explosion(image_explosion, 17, (int)spheres[x].pos_x, (int)spheres[x].pos_y));
+							explosions.push_back(explosion(image_explosion, 17, (int)spheres[y].pos_x, (int)spheres[y].pos_y));
+						}
             
             if (check_collision(heli[0], heli[1])) {
-            	heli[0].explode((heli[0].pos_x - heli[1].pos_x)*10, (heli[0].pos_y - heli[1].pos_y)*10);
-            	heli[1].explode((heli[1].pos_x - heli[0].pos_x)*10, (heli[1].pos_y - heli[0].pos_y)*10);
+            	heli[0].explode((heli[0].pos_x - heli[1].pos_x)+heli[0].speed_x, (heli[0].pos_y - heli[1].pos_y)+heli[0].speed_y);
+            	heli[1].explode((heli[1].pos_x - heli[0].pos_x)+heli[1].speed_x, (heli[1].pos_y - heli[0].pos_y)+heli[1].speed_y);
+            	explosions.push_back(explosion(image_explosion, 17, (int)heli[0].pos_x, (int)heli[0].pos_y));
+            	explosions.push_back(explosion(image_explosion, 17, (int)heli[1].pos_x, (int)heli[1].pos_y));
             }
             
             speed_counter--;
@@ -580,9 +589,12 @@ int main() {
 		blit(background, buffer, 0, 0, 0, 0, width, height);
 		
 		for (unsigned int x=0;x<spheres.size();++x)
-			spheres[x].draw(buffer, image_sphere, image_shot);
+			spheres[x].draw(buffer, image_sphere);
         heli[0].draw(buffer, image, image_shot);
         heli[1].draw(buffer, image2, image_shot);
+        
+        for (unsigned int x=0;x<explosions.size();++x)
+        	explosions[x].draw(buffer);
 		
 		textprintf_ex(buffer, font, 10, 10, makecol(0, 255, 0), -1, "Size: %i", heli[0].shots.size());
 		
@@ -597,44 +609,52 @@ int main() {
 }
 END_OF_MAIN();
 
-bool check_collision(ball ballen, helicopter heli) {
+bool check_collision(ball heli2, ball heli) {
 	bool collision = true;
 	
-	int heli_bb_top 	= (int)heli.pos_y + heli.size_y;
-	int heli_bb_left 	= (int)heli.pos_x;
-	int heli_bb_bottom 	= (int)heli.pos_y;
-	int heli_bb_right 	= (int)heli.pos_x + heli.size_x;
+	int heli_col_x = heli.size_x / 8;
+	int heli_col_y = heli.size_y / 8;
+	int heli_bb_top 	= (int)heli.pos_y + (heli.size_y - heli_col_y);
+	int heli_bb_left 	= (int)heli.pos_x + heli_col_x;
+	int heli_bb_bottom 	= (int)heli.pos_y + heli_col_y;
+	int heli_bb_right 	= (int)heli.pos_x + (heli.size_x - heli_col_x);
 	
-	int ballen_bb_top	= (int)ballen.pos_y + ballen.radius;
-	int ballen_bb_left	= (int)ballen.pos_x - ballen.radius;
-	int ballen_bb_bottom= (int)ballen.pos_y - ballen.radius;
-	int ballen_bb_right	= (int)ballen.pos_x + ballen.radius;
+	int heli2_col_x = heli2.size_x / 8;
+	int heli2_col_y = heli2.size_y / 8;
+	int heli2_bb_top	= (int)heli2.pos_y + (heli2.size_y - heli2_col_y);
+	int heli2_bb_left	= (int)heli2.pos_x + heli2_col_x;
+	int heli2_bb_bottom = (int)heli2.pos_y + heli2_col_y;
+	int heli2_bb_right	= (int)heli2.pos_x + (heli2.size_x - heli2_col_x);
 	
-	if 		(heli_bb_top	< ballen_bb_bottom) collision = false;
-	else if (heli_bb_right	< ballen_bb_left) 	collision = false;
-	else if (heli_bb_bottom > ballen_bb_top) 	collision = false;
-	else if (heli_bb_left	> ballen_bb_right) 	collision = false;
+	if 		(heli_bb_top	< heli2_bb_bottom)	collision = false;
+	else if (heli_bb_right	< heli2_bb_left) 	collision = false;
+	else if (heli_bb_bottom > heli2_bb_top) 	collision = false;
+	else if (heli_bb_left	> heli2_bb_right) 	collision = false;
 	
 	return collision;
 }
 
-bool check_collision(ball* ballen, helicopter heli) {
+bool check_collision(ball heli2, helicopter heli) {
 	bool collision = true;
 	
-	int heli_bb_top 	= (int)heli.pos_y + heli.size_y;
-	int heli_bb_left 	= (int)heli.pos_x;
-	int heli_bb_bottom 	= (int)heli.pos_y;
-	int heli_bb_right 	= (int)heli.pos_x + heli.size_x;
+	int heli_col_x = heli.size_x / 8;
+	int heli_col_y = heli.size_y / 8;
+	int heli_bb_top 	= (int)heli.pos_y + (heli.size_y - heli_col_y);
+	int heli_bb_left 	= (int)heli.pos_x + heli_col_x;
+	int heli_bb_bottom 	= (int)heli.pos_y + heli_col_y;
+	int heli_bb_right 	= (int)heli.pos_x + (heli.size_x - heli_col_x);
 	
-	int ballen_bb_top	= (int)ballen->pos_y + ballen->radius;
-	int ballen_bb_left	= (int)ballen->pos_x - ballen->radius;
-	int ballen_bb_bottom= (int)ballen->pos_y - ballen->radius;
-	int ballen_bb_right	= (int)ballen->pos_x + ballen->radius;
+	int heli2_col_x = heli2.size_x / 8;
+	int heli2_col_y = heli2.size_y / 8;
+	int heli2_bb_top	= (int)heli2.pos_y + (heli2.size_y - heli2_col_y);
+	int heli2_bb_left	= (int)heli2.pos_x + heli2_col_x;
+	int heli2_bb_bottom = (int)heli2.pos_y + heli2_col_y;
+	int heli2_bb_right	= (int)heli2.pos_x + (heli2.size_x - heli2_col_x);
 	
-	if 		(heli_bb_top	< ballen_bb_bottom) collision = false;
-	else if (heli_bb_right	< ballen_bb_left) 	collision = false;
-	else if (heli_bb_bottom > ballen_bb_top) 	collision = false;
-	else if (heli_bb_left	> ballen_bb_right) 	collision = false;
+	if 		(heli_bb_top	< heli2_bb_bottom)	collision = false;
+	else if (heli_bb_right	< heli2_bb_left) 	collision = false;
+	else if (heli_bb_bottom > heli2_bb_top) 	collision = false;
+	else if (heli_bb_left	> heli2_bb_right) 	collision = false;
 	
 	return collision;
 }
