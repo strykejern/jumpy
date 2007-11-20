@@ -15,6 +15,7 @@ class shot {
 public:
 	double pos_x, pos_y;
 	double speed_x, speed_y;
+	static int size_x, size_y;
 	int tilt_angle;
 	int flip;
 	bool alive;
@@ -38,6 +39,9 @@ public:
 	}
 
 	void draw(BITMAP* buffer, BITMAP* image) {
+		shot::size_x = image->w;
+		shot::size_y = image->h;
+		
 		BITMAP* temp = create_bitmap(20, 10);
 		clear_bitmap(temp);
 		if (flip==1) draw_sprite(temp, image, 0, 0);
@@ -52,6 +56,9 @@ public:
 	}
 };
 
+int shot::size_x;
+int shot::size_y;
+	
 class explosion {
 public:
 	int pos_x;
@@ -214,36 +221,16 @@ public:
 class helicopter {
 public:
     double pos_x, pos_y;
-   
     double speed_x, speed_y;
-   
     double accel_x, accel_y;
-    
     double fric, bounce;
-   
     int size_x, size_y;
-    
     int tilt_angle;
-    
+    bool flip;
     std::vector<shot> shots;
-    int shots_limiter;
-    
+    int limiter_shots, limiter_flip;
     int health;
 
-    helicopter(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y) {
-        size_x = Size_x;
-        size_y = Size_y;
-        pos_x = Pos_x;
-        pos_y = Pos_y;
-        speed_x = Speed_x;
-        speed_y = Speed_y;
-        accel_x = Accel_x / fpsen;
-        accel_y = Accel_y / fpsen;
-        fric = 1;
-        bounce= 1;
-        shots_limiter = 0;
-        health = 100;
-    }
     helicopter(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y, double Fric, double Bounce) {
         size_x = Size_x;
         size_y = Size_y;
@@ -256,8 +243,10 @@ public:
         fric = Fric;
         bounce = Bounce;
         tilt_angle = 0;
-        shots_limiter = 0;
-        health = 100;
+        limiter_shots = 0;
+        limiter_flip = 0;
+        health = 500;
+        flip = false;
     }
    
     void update_phys() {
@@ -338,7 +327,7 @@ public:
         int draw_pos_x = (int)pos_x;
         int draw_pos_y = (int)(SCREEN_H - pos_y - size_y);
         
-        if(speed_x>0) {
+        if(!flip) {
         	BITMAP* temp = create_bitmap(size_x, size_y * 2);
         	clear_bitmap(temp);
         	
@@ -362,7 +351,7 @@ public:
         	draw_trans_sprite(buffer, temp, draw_pos_x, draw_pos_y);
         	destroy_bitmap(temp);
         }
-        else if(speed_x<0) {
+        else {
         	BITMAP* temp = create_bitmap(size_x, size_y);
         	BITMAP* temp2 = create_bitmap(size_x, size_y * 2);
         	clear_bitmap(temp);
@@ -391,8 +380,6 @@ public:
         	destroy_bitmap(temp2);
         	destroy_bitmap(temp);
         }
-    	else 
-    		draw_trans_sprite(buffer, image, draw_pos_x, draw_pos_y);
     	
     	if (tilt_angle<-20) tilt_angle = -20;
     	else if (tilt_angle>20) tilt_angle = 20;
@@ -414,8 +401,15 @@ public:
 
 	void get_input(bool up, bool down, bool left, bool right, bool shooting) {
 		if (up) accel_y = 3;
-		else if (down) accel_y = gravity - 3;
 		else accel_y = gravity;
+		
+		if (down) {
+			if (limiter_flip>30) {
+				flip = !flip;
+				limiter_flip = 0;
+			}
+		}
+		limiter_flip++;
 		
 		if (left) accel_x = -2;
 		else if (right) accel_x = 2;
@@ -425,7 +419,7 @@ public:
 	}
 
 	void shoot() {
-		if (shots_limiter>10) {
+		if (limiter_shots>10) {
 			double x, y;
 			int spd = 32;
 			if (speed_x>=0) {
@@ -437,14 +431,14 @@ public:
 				x = -(spd*sin(PI/180*(tilt_angle+90)));
 			}
 			shots.push_back(shot(pos_x+(size_x/2), pos_y+(size_y/2), x, y, tilt_angle));
-			shots_limiter = 0;
+			limiter_shots = 0;
 		}
-		else shots_limiter += 1;
+		else limiter_shots += 1;
 	}
 	void shoot_pre() {
-		if (shots_limiter>10) {
+		if (limiter_shots>10) {
 			double x, y;
-			if (speed_x>=0) {
+			if (!flip) {
 				y = angles_y[tilt_angle+20];
 				x = angles_x[tilt_angle+20];
 			}
@@ -453,15 +447,18 @@ public:
 				x = -angles_x[tilt_angle+20];
 			}
 			shots.push_back(shot(pos_x+(size_x/2), pos_y+(size_y/2), x, y, tilt_angle));
-			shots_limiter = 0;
+			limiter_shots = 0;
 		}
-		else shots_limiter += 1;
+		else limiter_shots += 1;
 	}
 };
 
 bool check_collision(ball, ball);
 bool check_collision(ball, helicopter);
 bool check_collision(helicopter, helicopter);
+bool check_collision(shot, helicopter);
+bool check_collision(shot, ball);
+void draw_health(BITMAP*, int, int, int);
 
 void increment_speed_counter() {
     speed_counter++;
@@ -522,13 +519,14 @@ int main() {
     image_explosion[16] = load_bitmap("./sprites/exp_frame_16.tga", 0);
 	
 	std::vector<helicopter> heli;
-    heli.push_back(helicopter(image_explosion, 17,image->w, image->h, 720, 40, 0, 0, 0, gravity / 2, 0.8, 0.5));
-    heli.push_back(helicopter(image_explosion, 17,image2->w, image2->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5));
+    heli.push_back(helicopter(image_explosion, 17,image->w, image->h, 40, 40, 0, 0, 0, gravity / 2, 0.8, 0.5));
+    heli.push_back(helicopter(image_explosion, 17,image2->w, image2->h, 720, 40, 0, 0, 0, gravity / 2, 0.8, 0.5));
+    heli[0].flip = !heli[0].flip;
     
     srand(time(NULL));
     
     std::vector<ball> spheres;
-	for (int x=0;x<5;++x) 
+	for (int x=0;x<01;++x) 
 		spheres.push_back(
 			ball(
 				image_sphere->w,
@@ -546,8 +544,8 @@ int main() {
 	
     while (!key[KEY_ESC]) {
         while (speed_counter > 0) {
-        	heli[0].get_input(key[KEY_UP], key[KEY_DOWN], key[KEY_LEFT], key[KEY_RIGHT], key[KEY_END]);
-        	heli[1].get_input(key[KEY_W], key[KEY_S], key[KEY_A], key[KEY_D], key[KEY_X]);
+        	heli[0].get_input(key[KEY_UP], key[KEY_DOWN], key[KEY_LEFT], key[KEY_RIGHT], true);
+        	heli[1].get_input(key[KEY_W], key[KEY_S], key[KEY_A], key[KEY_D], true);
         	
         	for (unsigned int x=0;x<heli.size();++x)
         		if (heli[x].health>0)
@@ -568,7 +566,7 @@ int main() {
 						heli[x].explode((heli[x].pos_x - spheres[y].pos_x)+heli[x].speed_x, (heli[x].pos_y - spheres[y].pos_y)+heli[x].speed_y, 1);
 						spheres[y].explode((spheres[y].pos_x - heli[x].pos_x)+spheres[y].speed_x, (spheres[y].pos_y - heli[x].pos_y)+spheres[y].speed_y);
 						if (heli[x].health>0) explosions.push_back(explosion(image_explosion, 17, (int)heli[x].pos_x, (int)heli[x].pos_y));
-						explosions.push_back(explosion(image_explosion, 17, (int)spheres[x].pos_x, (int)spheres[x].pos_y));
+						explosions.push_back(explosion(image_explosion, 17, (int)spheres[y].pos_x, (int)spheres[y].pos_y));
 					}
             
             for (unsigned int x=0;x<spheres.size();++x)
@@ -587,6 +585,21 @@ int main() {
             	if (heli[1].health>0) explosions.push_back(explosion(image_explosion, 17, (int)heli[1].pos_x, (int)heli[1].pos_y));
             }
             
+            for (unsigned int x=0;x<heli.size();++x)
+            	for (unsigned int y=0;y<heli[x].shots.size();++y) {
+            		for (unsigned int z=0;z<heli.size();++z)
+            			if (z!=x)
+            				if (check_collision(heli[x].shots[y], heli[z])) {
+            					heli[z].explode(heli[z].speed_x,heli[z].speed_y,10);
+            					if (heli[z].health>0) explosions.push_back(explosion(image_explosion, 17, (int)heli[z].pos_x, (int)heli[z].pos_y));
+            				}
+            		for (unsigned int z=0;z<spheres.size();++z)
+            			if (check_collision(heli[x].shots[y], spheres[z])) {
+							spheres[z].explode(spheres[z].speed_x,spheres[z].speed_y);
+							explosions.push_back(explosion(image_explosion, 17, (int)spheres[z].pos_x, (int)spheres[z].pos_y));
+						}
+            	}
+            
             speed_counter--;
         }
         
@@ -594,13 +607,15 @@ int main() {
 		
 		for (unsigned int x=0;x<spheres.size();++x)
 			spheres[x].draw(buffer, image_sphere);
+			
         heli[0].draw(buffer, image, image_shot);
         heli[1].draw(buffer, image2, image_shot);
         
+        draw_health(buffer, 10, 10, heli[0].health);
+        draw_health(buffer, SCREEN_W-110, 10, heli[1].health);
+        
         for (unsigned int x=0;x<explosions.size();++x)
         	explosions[x].draw(buffer);
-		
-		textprintf_ex(buffer, font, 10, 10, makecol(0, 255, 0), -1, "Size: %i", heli[0].shots.size());
 		
         blit(buffer, screen, 0, 0, 0, 0, width, height);
         clear_bitmap(buffer);
@@ -638,8 +653,11 @@ bool check_collision(ball heli2, ball heli) {
 	return collision;
 }
 
-void draw_health(BITMAP* buffer, int pos_x, int pos_y) {
-	//rectfill(buffer, 
+void draw_health(BITMAP* buffer, int pos_x, int pos_y, int health) {
+	health = (health>0) ? health : 0;
+	rectfill(buffer, pos_x  , pos_y  , pos_x+101, pos_y+10, makecol(0  ,0,0));
+	rectfill(buffer, pos_x+1, pos_y+1, pos_x+health, pos_y+9 , makecol(255,0,0));
+	textprintf_ex(buffer, font, pos_x+40, pos_y+2, makecol(0,255,0), -1, "%i", health);
 }
 
 bool check_collision(ball heli2, helicopter heli) {
@@ -668,6 +686,56 @@ bool check_collision(ball heli2, helicopter heli) {
 }
 
 bool check_collision(helicopter heli, helicopter heli2) {
+	bool collision = true;
+	
+	int heli_col_x = heli.size_x / 8;
+	int heli_col_y = heli.size_y / 8;
+	int heli_bb_top 	= (int)heli.pos_y + (heli.size_y - heli_col_y);
+	int heli_bb_left 	= (int)heli.pos_x + heli_col_x;
+	int heli_bb_bottom 	= (int)heli.pos_y + heli_col_y;
+	int heli_bb_right 	= (int)heli.pos_x + (heli.size_x - heli_col_x);
+	
+	int heli2_col_x = heli2.size_x / 8;
+	int heli2_col_y = heli2.size_y / 8;
+	int heli2_bb_top	= (int)heli2.pos_y + (heli2.size_y - heli2_col_y);
+	int heli2_bb_left	= (int)heli2.pos_x + heli2_col_x;
+	int heli2_bb_bottom = (int)heli2.pos_y + heli2_col_y;
+	int heli2_bb_right	= (int)heli2.pos_x + (heli2.size_x - heli2_col_x);
+	
+	if 		(heli_bb_top	< heli2_bb_bottom)	collision = false;
+	else if (heli_bb_right	< heli2_bb_left) 	collision = false;
+	else if (heli_bb_bottom > heli2_bb_top) 	collision = false;
+	else if (heli_bb_left	> heli2_bb_right) 	collision = false;
+	
+	return collision;
+}
+
+bool check_collision(shot heli, helicopter heli2) {
+	bool collision = true;
+	
+	int heli_col_x = heli.size_x / 8;
+	int heli_col_y = heli.size_y / 8;
+	int heli_bb_top 	= (int)heli.pos_y + (heli.size_y - heli_col_y);
+	int heli_bb_left 	= (int)heli.pos_x + heli_col_x;
+	int heli_bb_bottom 	= (int)heli.pos_y + heli_col_y;
+	int heli_bb_right 	= (int)heli.pos_x + (heli.size_x - heli_col_x);
+	
+	int heli2_col_x = heli2.size_x / 8;
+	int heli2_col_y = heli2.size_y / 8;
+	int heli2_bb_top	= (int)heli2.pos_y + (heli2.size_y - heli2_col_y);
+	int heli2_bb_left	= (int)heli2.pos_x + heli2_col_x;
+	int heli2_bb_bottom = (int)heli2.pos_y + heli2_col_y;
+	int heli2_bb_right	= (int)heli2.pos_x + (heli2.size_x - heli2_col_x);
+	
+	if 		(heli_bb_top	< heli2_bb_bottom)	collision = false;
+	else if (heli_bb_right	< heli2_bb_left) 	collision = false;
+	else if (heli_bb_bottom > heli2_bb_top) 	collision = false;
+	else if (heli_bb_left	> heli2_bb_right) 	collision = false;
+	
+	return collision;
+}
+
+bool check_collision(shot heli, ball heli2) {
 	bool collision = true;
 	
 	int heli_col_x = heli.size_x / 8;
