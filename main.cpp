@@ -7,7 +7,7 @@
 
 volatile long speed_counter = 0;
 const int fpsen = 20;
-const double gravity = -9.81;
+const double gravity = -9.81 / 2;
 double angles_x[41];
 double angles_y[41];
 
@@ -227,6 +227,8 @@ public:
     
     std::vector<shot> shots;
     int shots_limiter;
+    
+    int health;
 
     helicopter(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y) {
         size_x = Size_x;
@@ -240,6 +242,7 @@ public:
         fric = 1;
         bounce= 1;
         shots_limiter = 0;
+        health = 100;
     }
     helicopter(BITMAP* explosion_image[], int frame_count,int Size_x, int Size_y, double Pos_x, double Pos_y, double Speed_x, double Speed_y, double Accel_x, double Accel_y, double Fric, double Bounce) {
         size_x = Size_x;
@@ -254,6 +257,7 @@ public:
         bounce = Bounce;
         tilt_angle = 0;
         shots_limiter = 0;
+        health = 100;
     }
    
     void update_phys() {
@@ -402,10 +406,10 @@ public:
 		speed_x = 0;
 		speed_y = 0;
 	}
-	void explode(double Speed_x, double Speed_y) {
-		//pang->frame = 0;
+	void explode(double Speed_x, double Speed_y, int health_loss) {
 		speed_x = Speed_x * fric;
 		speed_y = Speed_y * bounce;
+		health -= health_loss;
 	}
 
 	void get_input(bool up, bool down, bool left, bool right, bool shooting) {
@@ -524,7 +528,7 @@ int main() {
     srand(time(NULL));
     
     std::vector<ball> spheres;
-	for (int x=0;x<50;++x) 
+	for (int x=0;x<5;++x) 
 		spheres.push_back(
 			ball(
 				image_sphere->w,
@@ -546,7 +550,8 @@ int main() {
         	heli[1].get_input(key[KEY_W], key[KEY_S], key[KEY_A], key[KEY_D], key[KEY_X]);
         	
         	for (unsigned int x=0;x<heli.size();++x)
-        		heli[x].update_phys();
+        		if (heli[x].health>0)
+        			heli[x].update_phys();
             
             for (unsigned int x=0;x<spheres.size();++x)
             	spheres[x].update_phys();
@@ -560,27 +565,26 @@ int main() {
             for (unsigned int x=0;x<heli.size();++x)
 				for (unsigned int y=0;y<spheres.size();++y)
 					if (check_collision(spheres[y], heli[x])) {
-						heli[x].explode((heli[x].pos_x - spheres[y].pos_x)+heli[x].speed_x, (heli[x].pos_y - spheres[y].pos_y)+heli[x].speed_y);
+						heli[x].explode((heli[x].pos_x - spheres[y].pos_x)+heli[x].speed_x, (heli[x].pos_y - spheres[y].pos_y)+heli[x].speed_y, 1);
 						spheres[y].explode((spheres[y].pos_x - heli[x].pos_x)+spheres[y].speed_x, (spheres[y].pos_y - heli[x].pos_y)+spheres[y].speed_y);
-						explosions.push_back(explosion(image_explosion, 17, (int)heli[x].pos_x, (int)heli[x].pos_y));
+						if (heli[x].health>0) explosions.push_back(explosion(image_explosion, 17, (int)heli[x].pos_x, (int)heli[x].pos_y));
 						explosions.push_back(explosion(image_explosion, 17, (int)spheres[x].pos_x, (int)spheres[x].pos_y));
 					}
             
             for (unsigned int x=0;x<spheres.size();++x)
-            	for (unsigned int y=x;y<spheres.size();++y)
-            		if (y!=x)
-						if (check_collision(spheres[x], spheres[y])) {
-							spheres[x].explode((spheres[x].pos_x - spheres[y].pos_x)+spheres[x].speed_x, (spheres[x].pos_y - spheres[y].pos_y)+spheres[x].speed_y);
-							spheres[y].explode((spheres[y].pos_x - spheres[x].pos_x)+spheres[y].speed_x, (spheres[y].pos_y - spheres[x].pos_y)+spheres[y].speed_y);
-							explosions.push_back(explosion(image_explosion, 17, (int)spheres[x].pos_x, (int)spheres[x].pos_y));
-							explosions.push_back(explosion(image_explosion, 17, (int)spheres[y].pos_x, (int)spheres[y].pos_y));
-						}
+            	for (unsigned int y=x+1;y<spheres.size();++y)
+					if (check_collision(spheres[x], spheres[y])) {
+						spheres[x].explode((spheres[x].pos_x - spheres[y].pos_x)+spheres[x].speed_x, (spheres[x].pos_y - spheres[y].pos_y)+spheres[x].speed_y);
+						spheres[y].explode((spheres[y].pos_x - spheres[x].pos_x)+spheres[y].speed_x, (spheres[y].pos_y - spheres[x].pos_y)+spheres[y].speed_y);
+						explosions.push_back(explosion(image_explosion, 17, (int)spheres[x].pos_x, (int)spheres[x].pos_y));
+						explosions.push_back(explosion(image_explosion, 17, (int)spheres[y].pos_x, (int)spheres[y].pos_y));
+					}
             
             if (check_collision(heli[0], heli[1])) {
-            	heli[0].explode((heli[0].pos_x - heli[1].pos_x)+heli[0].speed_x, (heli[0].pos_y - heli[1].pos_y)+heli[0].speed_y);
-            	heli[1].explode((heli[1].pos_x - heli[0].pos_x)+heli[1].speed_x, (heli[1].pos_y - heli[0].pos_y)+heli[1].speed_y);
-            	explosions.push_back(explosion(image_explosion, 17, (int)heli[0].pos_x, (int)heli[0].pos_y));
-            	explosions.push_back(explosion(image_explosion, 17, (int)heli[1].pos_x, (int)heli[1].pos_y));
+            	heli[0].explode((heli[0].pos_x - heli[1].pos_x)+heli[0].speed_x, (heli[0].pos_y - heli[1].pos_y)+heli[0].speed_y, 5);
+            	heli[1].explode((heli[1].pos_x - heli[0].pos_x)+heli[1].speed_x, (heli[1].pos_y - heli[0].pos_y)+heli[1].speed_y, 5);
+            	if (heli[0].health>0) explosions.push_back(explosion(image_explosion, 17, (int)heli[0].pos_x, (int)heli[0].pos_y));
+            	if (heli[1].health>0) explosions.push_back(explosion(image_explosion, 17, (int)heli[1].pos_x, (int)heli[1].pos_y));
             }
             
             speed_counter--;
@@ -632,6 +636,10 @@ bool check_collision(ball heli2, ball heli) {
 	else if (heli_bb_left	> heli2_bb_right) 	collision = false;
 	
 	return collision;
+}
+
+void draw_health(BITMAP* buffer, int pos_x, int pos_y) {
+	//rectfill(buffer, 
 }
 
 bool check_collision(ball heli2, helicopter heli) {
